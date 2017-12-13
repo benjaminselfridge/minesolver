@@ -1,0 +1,13 @@
+Plan for minesweeper
+
+* Initialize stack project and git repo
+* Develop core data structures
+** Cell and board
+** Use a type class first to stub the code out
+** Implement the interface once that's done
+** Cell/board both have some read-only, read-write, and hidden state.
+* Create command line interface
+** probably just hand roll the interface since we're going to try to use the tart approach
+** Board printing
+** create a simple interface that has four commands: help (unimplemented), breach, flag, and quit
+** don't worry about recursively clearing adjacent squares
