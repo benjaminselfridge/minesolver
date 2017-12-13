@@ -16,6 +16,14 @@ extra-source-files:  README.md
 executable minesolver
   hs-source-dirs:      src
   main-is:             Main.hs
-  other-modules:       Data.MSBoard
+  ghc-options:         -threaded
+  other-modules:       Data.MSBoard,
+                       Data.MSBoard.Classes,
+                       Data.MSBoard.Types,
+                       Data.MSBoard.SimpleBoard
   default-language:    Haskell2010
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       base >= 4.7 && < 5,
+                       brick,
+                       containers,
+                       mtl,
+                       vty
