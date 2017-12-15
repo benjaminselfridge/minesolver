@@ -12,7 +12,11 @@ import           Lens.Micro ( (&), (^.), (.~), (%~), Lens', lens)
 import           Lens.Micro.TH (makeLenses)
 
 import Data.MSBoard.Classes
-import Data.MSBoard.Types
+
+data CellInfo = CellInfo { hasBomb :: Bool
+                         , isPushed :: Bool
+                         , isFlagged :: Bool
+                         }
 
 data SimpleBoard = SimpleBoard { _sbDims :: (Int, Int)
                                , _sbCells :: (Map (Int, Int) CellInfo)
@@ -28,22 +32,26 @@ emptyBoard (h,w) = SimpleBoard (h,w) (M.fromList (toEmptyCell <$> range ((0,0), 
   where toEmptyCell x = (x, emptyCell)
 
 pushCell :: CellInfo -> CellInfo
-pushCell i = i { cellIsPushed = True }
+pushCell i = i { isPushed = True }
 
 addBombCell :: CellInfo -> CellInfo
-addBombCell i = i { cellHasBomb = True }
+addBombCell i = i { hasBomb = True }
 
 toggleFlagCell :: CellInfo -> CellInfo
-toggleFlagCell i = if cellIsFlagged i
-                   then i { cellIsFlagged = False }
-                   else i { cellIsFlagged = True }
+toggleFlagCell i = if isFlagged i
+                   then i { isFlagged = False }
+                   else i { isFlagged = True }
 
 instance MSBoard SimpleBoard where
   blankBoard dims bombs = foldr (\idx -> (sbCells %~ M.adjust addBombCell idx)) (emptyBoard dims) bombs
 
   dims board = board ^. sbDims
 
-  cellInfo board cell = M.lookup cell (board ^. sbCells)
+  cellHasBomb board cell = maybe False hasBomb $ M.lookup cell (board ^. sbCells)
+
+  cellIsPushed board cell = maybe False isPushed $ M.lookup cell (board ^. sbCells)
+
+  cellIsFlagged board cell = maybe False isFlagged $ M.lookup cell (board ^. sbCells)
 
   -- FIXME
   numBombs = const 0

@@ -1,6 +1,7 @@
 module Data.MSBoard.Classes
   ( MSBoard (..)
-  , bombPushed
+  , anyBombPushed
+  , allSafePushed
   , boardRange
   , neighbors
   , numNeighboringBombs
@@ -10,8 +11,6 @@ module Data.MSBoard.Classes
 import Data.Ix
 import Data.Monoid
 -- import System.Random
-
-import Data.MSBoard.Types
 
 class MSBoard board where
 
@@ -24,21 +23,29 @@ class MSBoard board where
   -- | The number of bombs in the board
   numBombs :: board -> Int
 
-  -- | Given a cell, return all info about that cell. Return Nothing if index is out
-  -- of bounds.
-  cellInfo :: board -> (Int, Int) -> Maybe CellInfo
+  -- | Test if a particular cell has a bomb
+  cellHasBomb :: board -> (Int, Int) -> Bool
+
+  -- | Test if a particular cell is pushed
+  cellIsPushed :: board -> (Int, Int) -> Bool
+
+  -- | Test if a particular cell is flagged
+  cellIsFlagged :: board -> (Int, Int) -> Bool
 
   -- | Push a cell.
   push :: (Int, Int) -> board -> board
 
+  -- | Toggle whether a cell is flagged.
   toggleFlag :: (Int, Int) -> board -> board
 
 -- | Return whether any bombs have been pushed on the board
-bombPushed :: MSBoard board => board -> Bool
-bombPushed board = flip any (range $ boardRange board) $ \ix ->
-  case cellInfo board ix of
-    Nothing -> False
-    Just i  -> cellHasBomb i && cellIsPushed i
+anyBombPushed :: MSBoard board => board -> Bool
+anyBombPushed board = flip any (range $ boardRange board) pushedBomb
+  where pushedBomb ix = cellHasBomb board ix && cellIsPushed board ix
+
+allSafePushed :: MSBoard board => board -> Bool
+allSafePushed board = not $ flip any (range $ boardRange board) safeUnpushed
+  where safeUnpushed ix = not (cellHasBomb board ix) && not (cellIsPushed board ix)
 
 -- | Return the range of coordinates within the board
 boardRange :: MSBoard board => board -> ((Int, Int), (Int, Int))
@@ -53,10 +60,7 @@ neighbors board (r,c) = filter (inRange (boardRange board)) candidates
                                             ]
 
 numNeighboringBombs :: MSBoard board => board -> (Int, Int) -> Int
-numNeighboringBombs board idx = getSum $ foldMap bombCount (neighbors board idx)
-  where bombCount idx' = case cellInfo board idx' of
-          Nothing -> error $ "Cell out of bounds: " ++ show idx
-          Just i  -> Sum $ fromEnum (cellHasBomb i)
+numNeighboringBombs board ix = getSum $ foldMap (Sum . fromEnum . cellHasBomb board) (neighbors board ix)
 
 height :: MSBoard board => board -> Int
 height = fst . dims
@@ -74,17 +78,15 @@ showBoard board = -- replicateM (width board) "_____" ++ "\n" ++
                   -- concat (zipWith (++) (show <$> [1..height board]) rows)
   where rows = foldMap showCell (range $ boardRange board)
         showL i = " " ++ (replicate (5 - length (show i)) ' ') ++ show i ++ " |"
-        showCell (r, c) = case cellInfo board (r,c) of
-          Nothing -> error $ "Cell out of bounds: " ++ show (r,c)
-          Just i  -> " " ++ showInfo i ++ end
+        showCell (r,c) = " " ++ showInfo (r,c) ++ end
           where end = if (c+1) `mod` width board == 0
                       then "\n"
                       else ""
-                showInfo i = case cellIsPushed i of
-                  False -> case cellIsFlagged i of
+                showInfo ix = case cellIsPushed board ix of
+                  False -> case cellIsFlagged board ix of
                     False -> " [ ]"
                     True  -> " [!]"
-                  True  -> case cellHasBomb i of
+                  True  -> case cellHasBomb board ix of
                     True -> " [X]"
-                    False -> "  " ++ show (numNeighboringBombs board (r,c)) ++ " "
+                    False -> "  " ++ show (numNeighboringBombs board ix) ++ " "
 

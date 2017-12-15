@@ -17,10 +17,8 @@ executable minesolver
   hs-source-dirs:      src
   main-is:             Main.hs
   ghc-options:         -threaded
-  other-modules:       Data.MSBoard,
-                       Data.MSBoard.Classes,
+  other-modules:       Data.MSBoard.Classes,
                        Data.MSBoard.IO,
-                       Data.MSBoard.Types,
                        Data.MSBoard.SimpleBoard
                        Data.MSBoard.State
   default-language:    Haskell2010

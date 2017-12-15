@@ -89,7 +89,9 @@ play = do
       Just ix -> do pushSt ix
                     res <- gameResult
                     case res of
-                      W -> lift $ putStrLn "Nice, you won!"
-                      L -> do lift $ putStrLn "You lost! Ha-ha!"
+                      W -> do printBoard
+                              lift $ putStrLn "Nice, you won!"
+                      L -> do pushAllSt
                               printBoard
+                              lift $ putStrLn "You lost! Ha-ha!"
                       C -> play

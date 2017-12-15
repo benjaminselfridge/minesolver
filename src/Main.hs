@@ -24,7 +24,7 @@ import Brick.Widgets.Core
 -- import Data.Text.Zipper (moveCursor)
 import Data.Tuple (swap)
 
-import Data.MSBoard
+import Data.MSBoard.Classes
 import Data.MSBoard.IO
 import Data.MSBoard.SimpleBoard
 import Data.MSBoard.State
@@ -80,7 +80,7 @@ app =
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
-  board <- randomBoard (10, 10) 30 :: IO SimpleBoard
+  board <- randomBoard (5,5) 5 :: IO SimpleBoard
   finalBoard <- execStateT play board
   putStrLn "Thanks for playing! Bye!"
 
