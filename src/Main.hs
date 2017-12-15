@@ -80,7 +80,7 @@ app =
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
-  board <- randomBoard (5, 5) 5 :: IO SimpleBoard
+  board <- randomBoard (10, 10) 30 :: IO SimpleBoard
   finalBoard <- execStateT play board
   putStrLn "Thanks for playing! Bye!"
 

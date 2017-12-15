@@ -73,12 +73,23 @@ play = do
                     res <- gameResult
                     case res of
                       W -> lift $ putStrLn "Nice, you won!"
-                      L -> lift $ putStrLn "You lost! Ha-ha!"
+                      L -> do lift $ putStrLn "You lost! Ha-ha!"
+                              printBoard
                       C -> play
-    "f" -> play
+    "f" -> case readMaybe (concat args) of
+      Nothing -> play
+      Just ix -> do flagSt ix
+                    play
     "h" -> do lift $ putStrLn helpString
               play
     "q" -> return ()
-    _ -> do lift $ putStrLn $ "Unrecognized command " ++ com
-            play
-  -- play1 $ printBoard
+    _ -> case readMaybe (concat (com:args)) of
+      Nothing -> do lift $ putStrLn $ "Unrecognized command " ++ com
+                    play
+      Just ix -> do pushSt ix
+                    res <- gameResult
+                    case res of
+                      W -> lift $ putStrLn "Nice, you won!"
+                      L -> do lift $ putStrLn "You lost! Ha-ha!"
+                              printBoard
+                      C -> play

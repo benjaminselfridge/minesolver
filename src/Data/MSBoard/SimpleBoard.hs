@@ -30,14 +30,16 @@ emptyBoard (h,w) = SimpleBoard (h,w) (M.fromList (toEmptyCell <$> range ((0,0), 
 pushCell :: CellInfo -> CellInfo
 pushCell i = i { cellIsPushed = True }
 
-addBomb :: CellInfo -> CellInfo
-addBomb i = i { cellHasBomb = True }
+addBombCell :: CellInfo -> CellInfo
+addBombCell i = i { cellHasBomb = True }
 
-addFlag :: CellInfo -> CellInfo
-addFlag i = i { cellHasFlag = True }
+toggleFlagCell :: CellInfo -> CellInfo
+toggleFlagCell i = if cellIsFlagged i
+                   then i { cellIsFlagged = False }
+                   else i { cellIsFlagged = True }
 
 instance MSBoard SimpleBoard where
-  blankBoard dims bombs = foldr (\idx -> (sbCells %~ M.adjust addBomb idx)) (emptyBoard dims) bombs
+  blankBoard dims bombs = foldr (\idx -> (sbCells %~ M.adjust addBombCell idx)) (emptyBoard dims) bombs
 
   dims board = board ^. sbDims
 
@@ -48,4 +50,4 @@ instance MSBoard SimpleBoard where
 
   push idx board = board & (sbCells %~ M.adjust pushCell idx)
 
-  flag idx board = board & (sbCells %~ M.adjust addFlag idx)
+  toggleFlag idx board = board & (sbCells %~ M.adjust toggleFlagCell idx)
