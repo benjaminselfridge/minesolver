@@ -1,5 +1,6 @@
 module Data.MSBoard.Types
-  ( CellInfo(..) ) where
+  ( CellInfo(..)
+  ) where
 
 data CellInfo = CellInfo { cellHasBomb :: Bool
                          , cellIsPushed :: Bool
