@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Data.MSBoard.SimpleBoard
@@ -52,9 +51,6 @@ instance MSBoard SimpleBoard where
   cellIsPushed board cell = maybe False isPushed $ M.lookup cell (board ^. sbCells)
 
   cellIsFlagged board cell = maybe False isFlagged $ M.lookup cell (board ^. sbCells)
-
-  -- FIXME
-  numBombs = const 0
 
   push idx board = board & (sbCells %~ M.adjust pushCell idx)
 

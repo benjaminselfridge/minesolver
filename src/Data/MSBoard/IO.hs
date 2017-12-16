@@ -1,6 +1,7 @@
 module Data.MSBoard.IO
   ( shuffle
   , randomBoard
+  , printBoard
   , play
   ) where
 
@@ -15,6 +16,7 @@ import System.IO
 import Text.Read (readMaybe)
 
 import Data.MSBoard.Classes
+import Data.MSBoard.Expert
 import Data.MSBoard.State
 
 -- | Randomly shuffle a list without the IO Monad
@@ -80,6 +82,9 @@ play = do
       Nothing -> play
       Just ix -> do flagSt ix
                     play
+    "e" -> do board <- get
+              lift $ mapM_ print $ movesWithOdds board
+              play
     "h" -> do lift $ putStrLn helpString
               play
     "q" -> return ()

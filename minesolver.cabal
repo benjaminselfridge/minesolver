@@ -18,6 +18,7 @@ executable minesolver
   main-is:             Main.hs
   ghc-options:         -threaded
   other-modules:       Data.MSBoard.Classes,
+                       Data.MSBoard.Expert,
                        Data.MSBoard.IO,
                        Data.MSBoard.SimpleBoard
                        Data.MSBoard.State

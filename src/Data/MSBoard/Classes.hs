@@ -1,14 +1,20 @@
 module Data.MSBoard.Classes
   ( MSBoard (..)
+  , numBombs
   , anyBombPushed
   , allSafePushed
   , boardRange
   , neighbors
+  , unpushedNeighbors
+  , numUnpushedNeighbors
+  , allUnpushedNeighbors
+  , allPushedNeighbors
   , numNeighboringBombs
   , showBoard
   ) where
 
 import Data.Ix
+import Data.List ((\\))
 import Data.Monoid
 -- import System.Random
 
@@ -19,9 +25,6 @@ class MSBoard board where
 
   -- | The (height, width) dimensions of the board
   dims :: board -> (Int, Int)
-
-  -- | The number of bombs in the board
-  numBombs :: board -> Int
 
   -- | Test if a particular cell has a bomb
   cellHasBomb :: board -> (Int, Int) -> Bool
@@ -38,6 +41,10 @@ class MSBoard board where
   -- | Toggle whether a cell is flagged.
   toggleFlag :: (Int, Int) -> board -> board
 
+-- | Return the number of bombs on the board
+numBombs :: MSBoard board => board -> Int
+numBombs board = length $ filter (cellHasBomb board) $ range $ boardRange board
+
 -- | Return whether any bombs have been pushed on the board
 anyBombPushed :: MSBoard board => board -> Bool
 anyBombPushed board = flip any (range $ boardRange board) pushedBomb
@@ -52,12 +59,29 @@ boardRange :: MSBoard board => board -> ((Int, Int), (Int, Int))
 boardRange board = ((0,0), (h-1,w-1))
   where (h,w) = dims board
 
+-- FIXME: Clean the below functions up, they are confusing as hell
+
 -- | Return a list of all the neighbors of a particular node in a board
 neighbors :: MSBoard board => board -> (Int, Int) -> [(Int, Int)]
 neighbors board (r,c) = filter (inRange (boardRange board)) candidates
   where candidates = [ (r + rOff, c + cOff) | rOff <- [-1,0,1]
                                             , cOff <- [-1,0,1]
-                                            ]
+                                            ] \\ [(r,c)]
+
+unpushedNeighbors :: MSBoard board => board -> (Int, Int) -> [(Int, Int)]
+unpushedNeighbors board ix = filter (not . cellIsPushed board) (neighbors board ix)
+
+numUnpushedNeighbors :: MSBoard board => board -> (Int, Int) -> Int
+numUnpushedNeighbors board ix = getSum $ foldMap (Sum . fromEnum . not . cellIsPushed board) (neighbors board ix)
+
+allUnpushedNeighbors :: MSBoard board => board -> [(Int, Int)]
+allUnpushedNeighbors board = filter unpushedNeighbor (range $ boardRange board)
+  where unpushedNeighbor ix = not (cellIsPushed board ix) && hasPushedNeighbors ix
+        hasPushedNeighbors ix = any (cellIsPushed board) (neighbors board ix)
+
+allPushedNeighbors :: MSBoard board => board -> [(Int, Int)]
+allPushedNeighbors board = filter pushedNeighbor (range $ boardRange board)
+  where pushedNeighbor ix = cellIsPushed board ix && numNeighboringBombs board ix > 0
 
 numNeighboringBombs :: MSBoard board => board -> (Int, Int) -> Int
 numNeighboringBombs board ix = getSum $ foldMap (Sum . fromEnum . cellHasBomb board) (neighbors board ix)

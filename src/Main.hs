@@ -5,6 +5,7 @@ module Main where
 
 import Control.Applicative ((<$>))
 import Control.Monad
+import Control.Monad.Trans
 import Control.Monad.Trans.State.Lazy
 import Lens.Micro ((^.), (&), (.~), (%~))
 import Lens.Micro.TH (makeLenses)
@@ -25,6 +26,7 @@ import Brick.Widgets.Core
 import Data.Tuple (swap)
 
 import Data.MSBoard.Classes
+import Data.MSBoard.Expert
 import Data.MSBoard.IO
 import Data.MSBoard.SimpleBoard
 import Data.MSBoard.State
@@ -80,7 +82,7 @@ app =
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
-  board <- randomBoard (5,5) 5 :: IO SimpleBoard
+  board <- randomBoard (10,10) 20 :: IO SimpleBoard
   finalBoard <- execStateT play board
   putStrLn "Thanks for playing! Bye!"
 
@@ -92,3 +94,13 @@ main = do
 --                                   (E.editor HeightEdit (Just 1) "10")
 --                                   (E.editor WidthEdit  (Just 1) "10")
 --                                   (E.editor BombsEdit  (Just 1) "10"))
+
+test :: (Int, Int) -> IO ()
+test ix = do
+  board <- randomBoard (5,5) 4 :: IO SimpleBoard
+  flip runStateT board $ do
+    pushSt ix
+    printBoard
+    board <- get
+    lift $ mapM_ print $ movesWithOdds board
+  return ()
