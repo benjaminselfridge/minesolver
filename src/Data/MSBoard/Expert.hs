@@ -1,11 +1,11 @@
 module Data.MSBoard.Expert
-  ( movesWithOdds )
+--  ( movesWithOdds )
   where
 
 import           Control.Monad
 import           Data.Bifunctor
-import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
+import           Data.Map.Lazy (Map)
+import qualified Data.Map.Lazy as M
 import           Data.Maybe (catMaybes)
 import           Data.Monoid
 import           Data.Ratio
@@ -29,8 +29,29 @@ splitN _ _ = []
 -- | Constraints
 type Constraint = Map (Int,Int) Bool
 
+(?^) :: Constraint -> Constraint -> Maybe Constraint
+(?^) c d = sequence $ M.unionWith (lift2M (?=)) (Just <$> c) (Just <$> d)
+
+(?~) :: Constraint -> Constraint -> Maybe Constraint
+(?~) ctx c = const (c M.\\ ctx) <$> ctx ?^ c
+
+reduceConstraints :: Constraint -> [Constraint] -> [Constraint]
+reduceConstraints ctx cs = catMaybes $ (ctx ?~) <$> cs
+
+-- HERE.
+-- I have a function that, given a context constraint, will reduce all the
+-- constraints in a list.
+
+collect :: [[Constraint]] -> [[Constraint]]
+collect (cs:css) = do
+  c' <- cs
+  let reduced = reduceConstraints c' <$> css -- reduce the remaining constraint sets
+  cs' <- collect reduced
+  return $ c' : cs'
+collect [] = [[]]
+
 matchConstraints :: [Constraint]-> Maybe Constraint
-matchConstraints cs = sequence $ M.unionsWith (lift2M (?=)) ((Just <$>) <$> cs)
+matchConstraints cs = foldM (?^) M.empty cs
 
 -- | Returns a list of every constraint that would satisfy a particular cell's
 -- neighboring bomb count given the current board configuration
@@ -39,16 +60,10 @@ cellConstraints board ix = do
   (nbrsYes, nbrsNo) <- splitN (numNeighboringBombs board ix) (unpushedNeighbors board ix)
   return $ M.fromList $ zip nbrsYes (repeat True) ++ zip nbrsNo (repeat False)
 
--- Call cellConstraints on every pushed bomb that is adjacent to at least one
--- bomb. Then, pick a constraint from each constraint list, and unify the result
--- non-deterministically. Get a list of all the successfully unified constraint
--- lists. This list contains every possible scenario for the unpushed neighbors. From
--- this list, compute the odds for each unpushed neighbor.
-
 -- | Compute all scenarios for the unpushed neighbors having bombs.
 neighborScenarios :: MSBoard board => board -> [Constraint]
 neighborScenarios board =
-  let scenarios = sequence (cellConstraints board <$> allPushedNeighbors board)
+  let scenarios = collect (cellConstraints board <$> allPushedNeighbors board)
   in  catMaybes (matchConstraints <$> scenarios)
 
 -- | Given a board, returns a list of all the potential next neighbor-moves, along
@@ -58,7 +73,7 @@ movesWithOdds board = [ (ix, odds ix) | ix <- frontier ]
   where frontier = allUnpushedNeighbors board
         scenarios = neighborScenarios board
         odds ix = (fromIntegral $ getSum $ foldMap (Sum . count) scenarios) /
-                  (fromIntegral $ length frontier)
+                  (fromIntegral $ length scenarios)
           where count scenario = maybe 0 fromEnum $ M.lookup ix scenario
 
 -- | Given a board, returns a list of all the best moves in descending order, along
