@@ -50,12 +50,17 @@ drawStat :: Int -> String -> Widget Name
 drawStat n label = str label <+> (withDefAttr statAttr $ hLimit 10 $ C.hCenter $ str $ show n)
 
 drawUi :: St -> [Widget Name]
-drawUi st = [ C.hCenter $
-              padTop (T.Pad 4) $
-              hBox [ padRight (T.Pad 10) $ drawStat h "H:"
-                   , padRight (T.Pad 10) $ drawStat w "W:"
-                   , drawStat (numBombs b) "Bombs:"
-                   ]
+drawUi st = [ vBox
+              [ C.hCenter $
+                padTop (T.Pad 4) $
+                hBox [ padRight (T.Pad 10) $ drawStat h "H:"
+                     , padRight (T.Pad 10) $ drawStat w "W:"
+                     , drawStat (numBombs b) "Bombs:"
+                     ]
+              , C.hCenter $
+                padTop (T.Pad 2) $
+                C.vCenter (str (showBoard b))
+              ]
             ]
   where b = st^.board
         (h, w) = dims b
@@ -79,21 +84,23 @@ app =
           , M.appChooseCursor = M.showFirstCursor
           }
 
-main :: IO ()
+-- main :: IO ()
+-- main = do
+--   hSetBuffering stdout NoBuffering
+--   board <- randomBoard (5,5) 7 :: IO SimpleBoard
+--   finalBoard <- execStateT play board
+--   putStrLn "Thanks for playing! Bye!"
+
+
+
 main = do
-  hSetBuffering stdout NoBuffering
   board <- randomBoard (10,10) 20 :: IO SimpleBoard
-  finalBoard <- execStateT play board
-  putStrLn "Thanks for playing! Bye!"
-
-
-
--- main = void $ M.defaultMain app (St
---                                   (emptyBoard (10,10))
---                                   Nothing
---                                   (E.editor HeightEdit (Just 1) "10")
---                                   (E.editor WidthEdit  (Just 1) "10")
---                                   (E.editor BombsEdit  (Just 1) "10"))
+  void $ M.defaultMain app (St
+                             board
+                             Nothing
+                             (E.editor HeightEdit (Just 1) "10")
+                             (E.editor WidthEdit  (Just 1) "10")
+                             (E.editor BombsEdit  (Just 1) "10"))
 
 test :: (Int, Int) -> IO ()
 test ix = do

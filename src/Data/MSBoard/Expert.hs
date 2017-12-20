@@ -38,10 +38,11 @@ type Constraint = Map (Int,Int) Bool
 reduceConstraints :: Constraint -> [Constraint] -> [Constraint]
 reduceConstraints ctx cs = catMaybes $ (ctx ?~) <$> cs
 
--- HERE.
--- I have a function that, given a context constraint, will reduce all the
--- constraints in a list.
-
+-- | I couldn't come up with a good name for this. It's like sequence (and I was
+-- using sequence before), but instead, it picks a constraint from the constraint set, then
+-- first "reduces" ALL of the constraints in the remaining constraint sets. Here,
+-- "reduce" means calling reduceConstraints with the chosen constraint to each of the
+-- constraint sets.
 collect :: [[Constraint]] -> [[Constraint]]
 collect (cs:css) = do
   c' <- cs

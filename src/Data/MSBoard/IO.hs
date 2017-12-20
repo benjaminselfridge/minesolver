@@ -60,6 +60,7 @@ helpString =
   "b (<r>, <c>)      -- breach at position (<r>, <c>)\n" ++
   "                     (index starting at 0)\n" ++
   "f (<r>, <c>)      -- place flag at position (<r>, <c>)\n" ++
+  "e                 -- get advice on next move\n" ++
   "h                 -- print this help message\n" ++
   "q                 -- quit"
 
@@ -83,8 +84,21 @@ play = do
       Just ix -> do flagSt ix
                     play
     "e" -> do board <- get
-              lift $ mapM_ print $ movesWithOdds board
-              play
+              -- TODO: print this out more elegantly. Perhaps, find the one with the
+              -- lowest odds, then compare that to the overall odds based on ratio of
+              -- remaining cells to remaining bombs where "remaining" means "so far
+              -- undetected, but we know are there because of the bomb count."
+              let moves = movesWithOdds board
+              let bestMove = case moves of
+                    [] -> Nothing
+                    (m:ms) -> Just $ foldl (minBy snd) m ms
+                      where minBy f a b = case f a < f b of
+                                            True  -> a
+                                            False -> b
+              case bestMove of
+                Just (ix, r) -> do lift $ putStrLn $ show ix ++ ", bomb probability of " ++ show r
+                                   play
+                Nothing -> return ()
     "h" -> do lift $ putStrLn helpString
               play
     "q" -> return ()
