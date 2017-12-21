@@ -1,11 +1,9 @@
 -- | This module exports the MSBoard typeclass, which provides the basic interface
 -- with a minesweeper board. It also provides some helpful functions for querying a
--- MSBoard. This module is intended to hide ``internal'' information from any module
--- that uses it; for instance, you should not be able to figure out (in general)
--- whether a particular cell has a bomb underneath it using this module.
+-- MSBoard.
 
 module Data.MSBoard.Classes
-  ( MSBoard (..)
+  ( MSBoard(..)
   -- * Board functions
   , height
   , width
