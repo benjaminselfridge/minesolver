@@ -11,6 +11,7 @@ import Lens.Micro ((^.), (&), (.~), (%~))
 import Lens.Micro.TH (makeLenses)
 import Data.Monoid ((<>))
 import qualified Graphics.Vty as V
+import System.Exit (exitFailure)
 import System.IO
 
 import qualified Brick.Types as T
@@ -34,6 +35,7 @@ import Data.MSBoard.State
 data Name = WidthEdit
           | HeightEdit
           | BombsEdit
+          | BoardClick
   deriving (Eq, Ord, Show)
 
 data St = St { _board   :: SimpleBoard
@@ -41,13 +43,21 @@ data St = St { _board   :: SimpleBoard
              , _width   :: E.Editor String Name
              , _height  :: E.Editor String Name
              , _bombs   :: E.Editor String Name
-
+             , _status  :: String
+             , _result  :: GameResult
              }
 
 makeLenses ''St
 
 drawStat :: Int -> String -> Widget Name
 drawStat n label = str label <+> (withDefAttr statAttr $ hLimit 10 $ C.hCenter $ str $ show n)
+
+drawBoard :: SimpleBoard -> Widget Name
+drawBoard b = clickable BoardClick $ str (showBoard b)
+
+-- | Convert mouse click in board to actual cell coordinate
+coordToCell :: (Int, Int) -> (Int, Int)
+coordToCell (x,y) = (y, x `div` 5)
 
 drawUi :: St -> [Widget Name]
 drawUi st = [ vBox
@@ -59,15 +69,33 @@ drawUi st = [ vBox
                      ]
               , C.hCenter $
                 padTop (T.Pad 2) $
-                C.vCenter (str (showBoard b))
+                C.vCenter (drawBoard b)
+              , C.hCenter $
+                padBottom (T.Pad 4) $
+                str stat
               ]
             ]
   where b = st^.board
+        stat = st^.status
         (h, w) = dims b
 
 appEvent :: St -> T.BrickEvent Name e -> T.EventM Name (T.Next St)
-appEvent b (T.VtyEvent (V.EvKey (V.KChar 'q') [])) = M.halt b
-appEvent b _ = M.continue b
+appEvent st (T.VtyEvent (V.EvKey (V.KChar 'q') [])) = M.halt st
+appEvent st (T.MouseDown BoardClick V.BLeft modifiers coords) = case st ^. result of
+  C -> do
+    let cell = coordToCell (T.loc coords)
+    let (res, b) = runState (pushSt cell >> gameResult) (st ^. board)
+    let newStatus = case res of
+          W -> "You won!"
+          L -> "You lost! Ha-ha!"
+          C -> st ^. status
+    M.continue $ st & (board .~ b) & (result .~ res) & (status .~ newStatus)
+  _ -> M.continue st
+appEvent st (T.MouseDown BoardClick V.BRight modifiers coords) = do
+  let cell = coordToCell (T.loc coords)
+  let (res, b) = runState (flagSt cell) (st ^. board)
+  M.continue $ st & (board .~ b)
+appEvent st _ = M.continue st
 
 statAttr :: AttrName
 statAttr = "hi"
@@ -92,15 +120,33 @@ app =
 --   putStrLn "Thanks for playing! Bye!"
 
 
+checkForMouseSupport :: IO ()
+checkForMouseSupport = do
+    vty <- V.mkVty =<< V.standardIOConfig
+
+    when (not $ V.supportsMode (V.outputIface vty) V.Mouse) $ do
+        putStrLn "Error: this terminal does not support mouse interaction"
+        exitFailure
+
+    V.shutdown vty
 
 main = do
+  checkForMouseSupport
   board <- randomBoard (10,10) 20 :: IO SimpleBoard
-  void $ M.defaultMain app (St
-                             board
-                             Nothing
-                             (E.editor HeightEdit (Just 1) "10")
-                             (E.editor WidthEdit  (Just 1) "10")
-                             (E.editor BombsEdit  (Just 1) "10"))
+  let buildVty = do
+        v <- V.mkVty =<< V.standardIOConfig
+        V.setMode (V.outputIface v) V.Mouse True
+        return v
+  st <- M.customMain buildVty Nothing app $
+    St
+    board
+    Nothing
+    (E.editor HeightEdit (Just 1) "10")
+    (E.editor WidthEdit  (Just 1) "10")
+    (E.editor BombsEdit  (Just 1) "10")
+    "Welcome to MineSolver!"
+    C
+  return ()
 
 test :: (Int, Int) -> IO ()
 test ix = do
