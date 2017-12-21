@@ -1,3 +1,7 @@
+-- | This module provides the brick-based gui frontend for a simple minesweeper game
+-- that gives helpful feedback to the user on bomb odds. It is the main module of the
+-- minesolver app.
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -34,28 +38,26 @@ import Data.MSBoard.IO
 import Data.MSBoard.SimpleBoard
 import Data.MSBoard.State
 
+-- | Widgets that need to be able to handle events
 data Name = BoardClick
   deriving (Eq, Ord, Show)
 
-data St = St { _board   :: SimpleBoard
-             , _focused :: Maybe Name
-             , _status  :: String
-             , _result  :: GameResult
+-- | Application state
+data St = St { _board       :: SimpleBoard      -- ^ the board state
+             , _focused     :: Maybe Name       -- ^ we don't need this yet
+             , _status      :: String           -- ^ changeable status string
+             , _result      :: GameResult       -- ^ game result
+             , _clickedCell :: Maybe (Int, Int) -- ^ current clicked cell
              }
 
 makeLenses ''St
-
-drawStat :: Int -> String -> Widget Name
-drawStat n label = str label <+> (withDefAttr statAttr $ hLimit 10 $ C.hCenter $ str $ show n)
 
 drawBoard :: SimpleBoard -> Widget Name
 drawBoard b = clickable BoardClick $ str (showBoard b)
 
 drawHelp :: Widget Name
 drawHelp = str $
-  "How to play \n\
-  \\n\
-  \q                      quit\n\
+  "q                      quit\n\
   \n                      new game\n\
   \<left click>           breach cell\n\
   \Ctrl+<left click>      flag cell\n\
@@ -64,17 +66,19 @@ drawHelp = str $
 
 title :: Widget Name
 title = str $
-  "  M   M    IIIIIIIII  NN      N  EEEEEEEEE  SSSSSSSS  OOOOOOO  L         V       V EEEEEEEEE RRRRRRRR \n\
-  \  MM MM        I      N NN    N  E         S         O       O L          V     V  E         R       R\n\
-  \ M  M  M       I      N   N   N  EEEEE      SSSSSSS  O       O L           V   V   EEEEE     RRRRRRRR \n\
-  \ M     M       I      N    NN N  E                 S O       O L            V V    E         R    RR  \n\
-  \M       M  IIIIIIIII  N      NN  EEEEEEEEE SSSSSSSS   OOOOOOO  LLLLLLLLL     V     EEEEEEEEE R      RR\n"
-
+  "  M   M    IIIIIIIII  NN      N  EEEEEEEEE   SSSSSSSS   OOOOOOO   L          V       V  EEEEEEEEE  RRRRRRRR \n\
+  \  MM MM        I      N NN    N  E          S          O       O  L           V     V   E          R       R\n\
+  \ M  M  M       I      N   N   N  EEEEE       SSSSSSS   O       O  L            V   V    EEEEE      RRRRRRRR \n\
+  \ M     M       I      N    NN N  E                  S  O       O  L             V V     E          R    RR  \n\
+  \M       M  IIIIIIIII  N      NN  EEEEEEEEE  SSSSSSSS    OOOOOOO   LLLLLLLLL      V      EEEEEEEEE  R      RR\n"
 
 -- | Convert mouse click in board to actual cell coordinate
-coordToCell :: (Int, Int) -> (Int, Int)
-coordToCell (x,y) = (y, x `div` 5)
+coordToCell :: (Int, Int) -> Maybe (Int, Int)
+coordToCell (x,y) = case x `mod` 4 >= 1 && x `mod` 4 <= 3 of
+  True  -> Just (y, x `div` 4)
+  False -> Nothing
 
+-- | Draw the user interface
 drawUi :: St -> [Widget Name]
 drawUi st =
   [ vBox
@@ -82,10 +86,10 @@ drawUi st =
       C.hCenter $
       title
     , hBox [ C.hCenter $
-             padTop (T.Pad 2) $
              withBorderStyle B.unicode $
              C.vCenter $
-             B.borderWithLabel (str "Hello!") $
+             B.border $
+             padRight (T.Pad 1) $
              drawBoard b
            ]
     , C.hCenter $
@@ -100,47 +104,60 @@ drawUi st =
         stat = st^.status
         (h, w) = dims b
 
-showRat :: Ratio Int -> String
-showRat r = show (numerator r) ++ "/" ++ show (denominator r)
+-- | convenience function for appEvent
+maybeContinue :: St -> Maybe a -> (a -> T.EventM Name (T.Next St)) -> T.EventM Name (T.Next St)
+maybeContinue st Nothing  k = M.continue st
+maybeContinue st (Just a) k = k a
 
+-- | The event handler for minesolver
 appEvent :: St -> T.BrickEvent Name e -> T.EventM Name (T.Next St)
 appEvent st (T.VtyEvent (V.EvKey (V.KChar 'q') [])) = M.halt st
 appEvent st (T.VtyEvent (V.EvKey (V.KChar 'n') [])) = do
-  b <- liftIO $ (randomBoard (20,20) 80 :: IO SimpleBoard)
+  b <- liftIO $ (randomBoard (20,20) 60 :: IO SimpleBoard)
   M.continue $ st & (board .~ b) & (result .~ C)
-appEvent st (T.MouseDown BoardClick V.BLeft [V.MCtrl] coords) = do
-  let cell = coordToCell (T.loc coords)
-  let (res, b) = runState (toggleFlagSt cell) (st ^. board)
-  M.continue $ st & (board .~ b)
-appEvent st (T.MouseDown BoardClick V.BLeft [V.MMeta] coords) = case st ^. result of
-  C -> do
-    let cell = coordToCell (T.loc coords)
-    let moves = movesWithOdds (st ^. board)
-    case lookup cell moves of
-      -- FIXME: In this case, we can give odds based on overall board state
-      Nothing -> M.continue $ st & (status .~ " ")
-      Just r  -> M.continue $ st & (status .~ showRat r ++ " bomb probability")
 appEvent st (T.MouseDown BoardClick V.BLeft [] coords) = case st ^. result of
-  C -> do
-    let cell = coordToCell (T.loc coords)
+  C -> maybeContinue st (coordToCell $ T.loc coords) $ \cell -> do
     let (res, b') = runState (pushSt cell >> gameResult) (st ^. board)
     let b = case res of
-          L -> execState pushAllSt b'
+          L -> execState revealBoardSt b'
           _ -> b'
     let newStatus = case res of
           W -> "You won!"
           L -> "You lost! Ha-ha!"
           C -> st ^. status
-    M.continue $ st & (board .~ b) & (result .~ res) & (status .~ newStatus)
+    M.continue $ st
+      & (board .~ b)
+      & (result .~ res)
+      & (status .~ newStatus)
+      & (clickedCell .~ Just cell)
   _ -> M.continue st
+appEvent st (T.MouseDown BoardClick V.BLeft [V.MMeta] coords) = case st ^. result of
+  C ->
+    maybeContinue st (coordToCell $ T.loc coords) $ \cell -> do
+    let moves = movesWithOdds (st ^. board)
+    case lookup cell moves of
+      -- FIXME: In this case, we can give odds based on overall board state
+      Nothing -> M.continue $ st & (status .~ " ")
+      Just r  -> M.continue $ st
+        & (status .~ showRat r ++ " bomb probability")
+        where showRat r = show (numerator r) ++ "/" ++ show (denominator r)
+  _ -> M.continue st
+appEvent st (T.MouseDown BoardClick V.BRight [] coords) =
+  maybeContinue st (coordToCell $ T.loc coords) $ \cell -> do
+  case maybe False (==cell) (st ^. clickedCell) of
+    False -> do
+      let (res, b) = runState (toggleFlagSt cell) (st ^. board)
+      M.continue $ st & (board .~ b) & (clickedCell .~ Just cell)
+    True -> M.continue st
+appEvent st (T.MouseDown _ _ _ _) = M.continue $ st & (clickedCell .~ Nothing)
+appEvent st (T.MouseUp _ _ _) = M.continue $ st & (clickedCell .~ Nothing)
 appEvent st _ = M.continue st
 
-statAttr :: AttrName
-statAttr = "hi"
-
+-- | For now, an empty attribute map
 msAttrMap :: St -> AttrMap
-msAttrMap = const $ attrMap V.defAttr [(statAttr, V.white `on` V.blue)]
+msAttrMap = const $ attrMap V.defAttr []
 
+-- | data structure that represents the entire app
 app :: M.App St e Name
 app =
     M.App { M.appDraw = drawUi
@@ -149,14 +166,6 @@ app =
           , M.appAttrMap = msAttrMap
           , M.appChooseCursor = M.showFirstCursor
           }
-
--- main :: IO ()
--- main = do
---   hSetBuffering stdout NoBuffering
---   board <- randomBoard (5,5) 7 :: IO SimpleBoard
---   finalBoard <- execStateT play board
---   putStrLn "Thanks for playing! Bye!"
-
 
 checkForMouseSupport :: IO ()
 checkForMouseSupport = do
@@ -170,7 +179,7 @@ checkForMouseSupport = do
 
 main = do
   checkForMouseSupport
-  board <- randomBoard (20,20) 80 :: IO SimpleBoard
+  board <- randomBoard (20,20) 60 :: IO SimpleBoard
   let buildVty = do
         v <- V.mkVty =<< V.standardIOConfig
         V.setMode (V.outputIface v) V.Mouse True
@@ -181,14 +190,18 @@ main = do
     Nothing
     "Welcome to MineSolver!"
     C
+    Nothing
   return ()
 
-test :: (Int, Int) -> IO ()
-test ix = do
-  board <- randomBoard (5,5) 4 :: IO SimpleBoard
-  flip runStateT board $ do
-    pushSt ix
-    printBoard
-    board <- get
-    lift $ mapM_ print $ movesWithOdds board
-  return ()
+-- main :: IO ()
+-- main = do
+--   hSetBuffering stdout NoBuffering
+--   board <- randomBoard (5,5) 7 :: IO SimpleBoard
+--   finalBoard <- execStateT play board
+--   putStrLn "Thanks for playing! Bye!"
+
+-- statAttr :: AttrName
+-- statAttr = "hi"
+
+-- msAttrMap :: St -> AttrMap
+-- msAttrMap = const $ attrMap V.defAttr [(statAttr, V.white `on` V.blue)]

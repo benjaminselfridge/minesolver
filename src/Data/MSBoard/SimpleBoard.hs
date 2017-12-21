@@ -1,3 +1,7 @@
+-- | This module exports the SimpleBoard data type, with an MSBoard instance
+-- declaration for said data type. Internally, a SimpleBoard is just a map from (Int,
+-- Int) cell indices to information about the cell.
+
 {-# LANGUAGE TemplateHaskell #-}
 
 module Data.MSBoard.SimpleBoard

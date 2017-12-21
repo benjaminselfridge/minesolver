@@ -1,3 +1,6 @@
+-- | This module exports functions specifically for the essentially defunct command
+-- line interface.
+
 module Data.MSBoard.IO
   ( shuffle
   , randomBoard
@@ -110,7 +113,7 @@ play = do
                     case res of
                       W -> do printBoard
                               lift $ putStrLn "Nice, you won!"
-                      L -> do pushAllSt
+                      L -> do revealBoardSt
                               printBoard
                               lift $ putStrLn "You lost! Ha-ha!"
                       C -> play
