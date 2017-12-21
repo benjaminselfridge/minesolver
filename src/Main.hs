@@ -60,7 +60,7 @@ drawHelp = str $
   "q                      quit\n\
   \n                      new game\n\
   \<left click>           breach cell\n\
-  \Ctrl+<left click>      flag cell\n\
+  \<right click>          flag cell\n\
   \Meta+<left click>      get bomb odds for cell\
   \"
 
