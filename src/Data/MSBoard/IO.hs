@@ -46,7 +46,7 @@ shuffle xs gen = runST $ do
 -- of bombs
 randomBoard :: MSBoard board => (Int, Int) -> Int -> IO board
 randomBoard (h,w) numBombs = do
-  gen <- getStdGen
+  gen <- newStdGen
   let (bombs, _) = shuffle (range ((0,0),(h-1,w-1))) gen
   return $ blankBoard (h,w) (take numBombs bombs)
 
@@ -81,7 +81,7 @@ play = do
                       C -> play
     "f" -> case readMaybe (concat args) of
       Nothing -> play
-      Just ix -> do flagSt ix
+      Just ix -> do toggleFlagSt ix
                     play
     "e" -> do board <- get
               -- TODO: print this out more elegantly. Perhaps, find the one with the

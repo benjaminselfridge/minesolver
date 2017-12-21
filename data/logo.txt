@@ -1,0 +1,5 @@
+  M   M    IIIIIIIII  NN      N  EEEEEEEEE  SSSSSSSS  OOOOOOO  L         V       V EEEEEEEEE RRRRRRRR 
+  MM MM        I      N NN    N  E         S         O       O L          V     V  E         R       R
+ M  M  M       I      N   N   N  EEEEE      SSSSSSS  O       O L           V   V   EEEEE     RRRRRRRR 
+ M     M       I      N    NN N  E                 S O       O L            V V    E         R    RR  
+M       M  IIIIIIIII  N      NN  EEEEEEEEE SSSSSSSS   OOOOOOO  LLLLLLLLL     V     EEEEEEEEE R      RR

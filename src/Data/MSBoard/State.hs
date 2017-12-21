@@ -2,7 +2,7 @@
 
 module Data.MSBoard.State
   ( pushSt
-  , flagSt
+  , toggleFlagSt
   , pushAllSt
   , gameResult
   , GameResult(..)
@@ -29,9 +29,13 @@ pushSt ix = do
         0 -> forM_ (filter (not . cellIsPushed board) (neighbors board ix)) pushSt
         _ -> return ()
 
-flagSt :: (Monad m, MSBoard board) => (Int, Int) -> StateT board m ()
-flagSt ix = do
+toggleFlagSt :: (Monad m, MSBoard board) => (Int, Int) -> StateT board m ()
+toggleFlagSt ix = do
   state $ ((),) . toggleFlag ix
+
+-- unFlagSt :: (Monad m, MSBoard board) => (Int, Int) -> StateT board m ()
+-- unFlagSt ix = do
+--   state $ ((),) . unFlag ix
 
 data GameResult = W | L | C
 
