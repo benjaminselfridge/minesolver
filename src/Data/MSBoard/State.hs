@@ -26,9 +26,9 @@ pushSt ix = do
     True -> return ()
     False -> do
       state $ ((),) . push ix
-      board <- get
-      case numNeighboringBombs board ix of
-        0 -> forM_ (filter (not . cellIsPushed board) (neighbors board ix)) pushSt
+      board' <- get
+      case numNeighboringBombs board' ix of
+        0 -> forM_ (filter (not . cellIsPushed board') (neighbors board ix)) pushSt
         _ -> return ()
 
 -- | Toggle the flag on a particular cell. This is a bare-bones wrapper around the
@@ -39,17 +39,17 @@ toggleFlagSt ix = do
 
 -- | Game result
 -- Win, Loss, or Continue (game still in progress)
-data GameResult = W | L | C
+data GameResult = Win | Loss | Continue
 
 -- | Get the game result from any particular board state
 gameResult :: (Monad m, MSBoard board) => StateT board m GameResult
 gameResult = do
   board <- get
   case anyBombPushed board of
-    True  -> return L
+    True  -> return Loss
     False -> case allSafePushed board of
-      True  -> return W
-      False -> return C
+      True  -> return Win
+      False -> return Continue
 
 -- | Reveal all the cells in the board (after the game is won or lost)
 revealBoardSt :: (Monad m, MSBoard board) => StateT board m ()

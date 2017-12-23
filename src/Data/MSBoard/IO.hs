@@ -15,7 +15,6 @@ import Control.Monad.Trans.State.Lazy
 import Data.Array.ST
 import Data.STRef
 import System.Random
-import System.IO
 import Text.Read (readMaybe)
 
 import Data.MSBoard.Classes
@@ -31,7 +30,7 @@ shuffle xs gen = runST $ do
         (a,s') <- liftM (randomR lohi) (readSTRef g)
         writeSTRef g s'
         return a
-  ar <- newArray n xs
+  ar <- newArray' n xs
   xs' <- forM [1..n] $ \i -> do
     j <- randomRST (i,n)
     vi <- readArray ar i
@@ -42,16 +41,16 @@ shuffle xs gen = runST $ do
   return (xs',gen')
   where
     n = length xs
-    newArray :: Int -> [a] -> ST s (STArray s Int a)
-    newArray n xs =  newListArray (1,n) xs
+    newArray' :: Int -> [a] -> ST s (STArray s Int a)
+    newArray' k ys =  newListArray (1,k) ys
 
 -- | Construct a random board from a random number generator, dimensions, and number
 -- of bombs
 randomBoard :: MSBoard board => (Int, Int) -> Int -> IO board
-randomBoard (h,w) numBombs = do
+randomBoard (h,w) nBombs = do
   gen <- newStdGen
   let (bombs, _) = shuffle (range ((0,0),(h-1,w-1))) gen
-  return $ blankBoard (h,w) (take numBombs bombs)
+  return $ blankBoard (h,w) (take nBombs bombs)
 
 printBoard :: MSBoard board => StateT board IO ()
 printBoard = do
@@ -78,10 +77,10 @@ play = do
       Just ix -> do pushSt ix
                     res <- gameResult
                     case res of
-                      W -> lift $ putStrLn "Nice, you won!"
-                      L -> do lift $ putStrLn "You lost! Ha-ha!"
-                              printBoard
-                      C -> play
+                      Win -> lift $ putStrLn "Nice, you won!"
+                      Loss -> do lift $ putStrLn "You lost! Ha-ha!"
+                                 printBoard
+                      Continue -> play
     "f" -> case readMaybe (concat args) of
       Nothing -> play
       Just ix -> do toggleFlagSt ix
@@ -111,9 +110,9 @@ play = do
       Just ix -> do pushSt ix
                     res <- gameResult
                     case res of
-                      W -> do printBoard
-                              lift $ putStrLn "Nice, you won!"
-                      L -> do revealBoardSt
-                              printBoard
-                              lift $ putStrLn "You lost! Ha-ha!"
-                      C -> play
+                      Win -> do printBoard
+                                lift $ putStrLn "Nice, you won!"
+                      Loss -> do revealBoardSt
+                                 printBoard
+                                 lift $ putStrLn "You lost! Ha-ha!"
+                      Continue -> play

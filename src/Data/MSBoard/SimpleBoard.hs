@@ -7,11 +7,10 @@
 module Data.MSBoard.SimpleBoard
   ( SimpleBoard ) where
 
-import           Control.Monad.State
 import           Data.Ix
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import           Lens.Micro ( (&), (^.), (.~), (%~), Lens', lens)
+import           Lens.Micro ( (&), (^.), (%~))
 import           Lens.Micro.TH (makeLenses)
 
 import Data.MSBoard.Classes
@@ -46,7 +45,7 @@ toggleFlagCell i = if isFlagged i
                    else i { isFlagged = True }
 
 instance MSBoard SimpleBoard where
-  blankBoard dims bombs = foldr (\idx -> (sbCells %~ M.adjust addBombCell idx)) (emptyBoard dims) bombs
+  blankBoard sz bombs = foldr (\idx -> (sbCells %~ M.adjust addBombCell idx)) (emptyBoard sz) bombs
 
   dims board = board ^. sbDims
 

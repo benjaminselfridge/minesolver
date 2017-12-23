@@ -48,13 +48,13 @@ type Constraint = Map (Int,Int) Bool
 
 -- | Unify two constraints into a single constraint, if they don't conflict.
 (?^) :: Constraint -> Constraint -> Maybe Constraint
-(?^) c d = sequence $ M.unionWith (lift2M (?=)) (Just <$> c) (Just <$> d)
+c ?^ d = sequence $ M.unionWith (lift2M (?=)) (Just <$> c) (Just <$> d)
 
 -- | Ensure that two constraints agree, and then return the second one minus the keys
 -- of the first one. This is mainly useful for defining the `reduceConstraints`
 -- function.
 (?~) :: Constraint -> Constraint -> Maybe Constraint
-(?~) ctx c = const (c M.\\ ctx) <$> ctx ?^ c
+ctx ?~ c = const (c M.\\ ctx) <$> ctx ?^ c
 
 -- | Given a "global" or "context" constraint representing a set of assumptions, and
 -- another set of potential additional constraints, return a list consisting of only
@@ -68,7 +68,8 @@ reduceConstraints ctx cs = catMaybes $ (ctx ?~) <$> cs
 -- using sequence before), but instead, it picks a constraint from the constraint set, then
 -- first "reduces" ALL of the constraints in the remaining constraint sets. Here,
 -- "reduce" means calling reduceConstraints with the chosen constraint to each of the
--- constraint sets.
+-- constraint sets. The reason we bother to do this is that it would just be insanely
+-- inefficient if we didn't proactively filter the constraints in this way.
 collect :: [[Constraint]] -> [[Constraint]]
 collect (cs:css) = do
   c' <- cs

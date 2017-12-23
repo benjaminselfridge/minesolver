@@ -16,7 +16,7 @@ extra-source-files:  README.md
 executable minesolver
   hs-source-dirs:      src
   main-is:             Main.hs
-  ghc-options:         -threaded
+  ghc-options:         -threaded -Wall
   other-modules:       Data.MSBoard.Classes,
                        Data.MSBoard.Expert,
                        Data.MSBoard.IO,

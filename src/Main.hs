@@ -7,30 +7,24 @@
 
 module Main where
 
-import Control.Applicative ((<$>))
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.State.Lazy
-import Lens.Micro ((^.), (&), (.~), (%~))
+import Lens.Micro ((^.), (&), (.~))
 import Lens.Micro.TH (makeLenses)
-import Data.Monoid ((<>))
 import Data.Ratio
 import qualified Graphics.Vty as V
 import System.Exit (exitFailure)
-import System.IO
 
 import qualified Brick.Types as T
 import Brick.AttrMap
-import Brick.Util
-import Brick.Types (Widget, ViewportType(Vertical))
+import Brick.Types (Widget)
 import qualified Brick.Main as M
-import qualified Brick.Widgets.Edit as E
+-- import qualified Brick.Widgets.Edit as E
 import qualified Brick.Widgets.Center as C
 import qualified Brick.Widgets.Border as B
 import qualified Brick.Widgets.Border.Style as B
 import Brick.Widgets.Core
--- import Data.Text.Zipper (moveCursor)
-import Data.Tuple (swap)
 
 import Data.MSBoard.Classes
 import Data.MSBoard.Expert
@@ -66,11 +60,9 @@ drawHelp = str $
 
 title :: Widget Name
 title = str $
-  "  M   M    IIIIIIIII  NN      N  EEEEEEEEE   SSSSSSSS   OOOOOOO   L          V       V  EEEEEEEEE  RRRRRRRR \n\
-  \  MM MM        I      N NN    N  E          S          O       O  L           V     V   E          R       R\n\
-  \ M  M  M       I      N   N   N  EEEEE       SSSSSSS   O       O  L            V   V    EEEEE      RRRRRRRR \n\
-  \ M     M       I      N    NN N  E                  S  O       O  L             V V     E          R    RR  \n\
-  \M       M  IIIIIIIII  N      NN  EEEEEEEEE  SSSSSSSS    OOOOOOO   LLLLLLLLL      V      EEEEEEEEE  R      RR\n"
+  " _______ _____ __   _ _______ _______  _____         _    _ _______  ______\n\
+  \ |  |  |   |   | \\  | |______ |______ |     | |       \\  /  |______ |_____/\n\
+  \ |  |  | __|__ |  \\_| |______ ______| |_____| |_____   \\/   |______ |    \\_\n"
 
 -- | Convert mouse click in board to actual cell coordinate
 coordToCell :: (Int, Int) -> Maybe (Int, Int)
@@ -102,29 +94,31 @@ drawUi st =
   ]
   where b = st^.board
         stat = st^.status
-        (h, w) = dims b
 
 -- | convenience function for appEvent
 maybeContinue :: St -> Maybe a -> (a -> T.EventM Name (T.Next St)) -> T.EventM Name (T.Next St)
-maybeContinue st Nothing  k = M.continue st
-maybeContinue st (Just a) k = k a
+maybeContinue st Nothing  _ = M.continue st
+maybeContinue _  (Just a) k = k a
 
 -- | The event handler for minesolver
 appEvent :: St -> T.BrickEvent Name e -> T.EventM Name (T.Next St)
 appEvent st (T.VtyEvent (V.EvKey (V.KChar 'q') [])) = M.halt st
 appEvent st (T.VtyEvent (V.EvKey (V.KChar 'n') [])) = do
   b <- liftIO $ (randomBoard (20,20) 60 :: IO SimpleBoard)
-  M.continue $ st & (board .~ b) & (result .~ C)
+  M.continue $ st
+    & (board .~ b)
+    & (result .~ Continue)
+    & (status .~ "Good luck!")
 appEvent st (T.MouseDown BoardClick V.BLeft [] coords) = case st ^. result of
-  C -> maybeContinue st (coordToCell $ T.loc coords) $ \cell -> do
+  Continue -> maybeContinue st (coordToCell $ T.loc coords) $ \cell -> do
     let (res, b') = runState (pushSt cell >> gameResult) (st ^. board)
     let b = case res of
-          L -> execState revealBoardSt b'
+          Loss -> execState revealBoardSt b'
           _ -> b'
     let newStatus = case res of
-          W -> "You won!"
-          L -> "You lost! Ha-ha!"
-          C -> st ^. status
+          Win -> "You won!"
+          Loss -> "You lost! Ha-ha!"
+          Continue -> st ^. status
     M.continue $ st
       & (board .~ b)
       & (result .~ res)
@@ -132,21 +126,21 @@ appEvent st (T.MouseDown BoardClick V.BLeft [] coords) = case st ^. result of
       & (clickedCell .~ Just cell)
   _ -> M.continue st
 appEvent st (T.MouseDown BoardClick V.BLeft [V.MMeta] coords) = case st ^. result of
-  C ->
+  Continue ->
     maybeContinue st (coordToCell $ T.loc coords) $ \cell -> do
     let moves = movesWithOdds (st ^. board)
     case lookup cell moves of
       -- FIXME: In this case, we can give odds based on overall board state
-      Nothing -> M.continue $ st & (status .~ " ")
+      Nothing -> M.continue $ st & (status .~ "Not sure...")
       Just r  -> M.continue $ st
-        & (status .~ showRat r ++ " bomb probability")
-        where showRat r = show (numerator r) ++ "/" ++ show (denominator r)
+        & (status .~ sr ++ " bomb probability")
+        where sr = show (numerator r) ++ "/" ++ show (denominator r)
   _ -> M.continue st
 appEvent st (T.MouseDown BoardClick V.BRight [] coords) =
   maybeContinue st (coordToCell $ T.loc coords) $ \cell -> do
   case maybe False (==cell) (st ^. clickedCell) of
     False -> do
-      let (res, b) = runState (toggleFlagSt cell) (st ^. board)
+      let (_, b) = runState (toggleFlagSt cell) (st ^. board)
       M.continue $ st & (board .~ b) & (clickedCell .~ Just cell)
     True -> M.continue st
 appEvent st (T.MouseDown _ _ _ _) = M.continue $ st & (clickedCell .~ Nothing)
@@ -177,20 +171,21 @@ checkForMouseSupport = do
 
     V.shutdown vty
 
+main :: IO ()
 main = do
   checkForMouseSupport
-  board <- randomBoard (20,20) 60 :: IO SimpleBoard
+  b <- randomBoard (20,20) 60 :: IO SimpleBoard
   let buildVty = do
         v <- V.mkVty =<< V.standardIOConfig
         V.setMode (V.outputIface v) V.Mouse True
         return v
-  st <- M.customMain buildVty Nothing app $
-    St
-    board
-    Nothing
-    "Welcome to MineSolver!"
-    C
-    Nothing
+  _st <- M.customMain buildVty Nothing app $
+    St { _board = b
+       , _focused = Nothing
+       , _status = "Welcome to MineSolver!"
+       , _result = Continue
+       , _clickedCell = Nothing
+       }
   return ()
 
 -- main :: IO ()

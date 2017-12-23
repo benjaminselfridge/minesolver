@@ -91,12 +91,6 @@ allSafePushed :: MSBoard board => board -> Bool
 allSafePushed board = not $ flip any (range $ boardRange board) safeUnpushed
   where safeUnpushed ix = not (cellHasBomb board ix) && not (cellIsPushed board ix)
 
--- | If a monoid gives a product operation, this is the corresponding exponent
--- function; given m in the monoid, this function gives m^k.
-replicateM :: Monoid m => Int -> m -> m
-replicateM k m | k > 0 = m <> replicateM (k-1) m
-               | otherwise = mempty
-
 -- | Render the board as a String.
 showBoard :: MSBoard board => board -> String
 showBoard board = foldMap showCell (range $ boardRange board)
